@@ -1,0 +1,142 @@
+NAME: api
+LAST DEPLOYED: Fri Feb  2 11:00:07 2024
+NAMESPACE: thunderstorm
+STATUS: pending-install
+REVISION: 1
+HOOKS:
+---
+# Source: thunder-web/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "api-thunder-web-test-connection"
+  labels:
+    helm.sh/chart: thunder-web-0.1.0
+    app.kubernetes.io/name: thunder-web
+    app.kubernetes.io/instance: opk
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['api-thunder-web:80']
+  restartPolicy: Never
+MANIFEST:
+---
+# Source: thunder-web/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-thunder-web
+  labels:
+    helm.sh/chart: thunder-web-0.1.0
+    app.kubernetes.io/name: thunder-web
+    app.kubernetes.io/instance: opk
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: thunder-web/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-thunder-web
+  labels:
+    helm.sh/chart: thunder-web-0.1.0
+    app.kubernetes.io/name: thunder-web
+    app.kubernetes.io/instance: opk
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 5000
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: thunder-web
+    app.kubernetes.io/instance: opk
+---
+# Source: thunder-web/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-thunder-web
+  labels:
+    helm.sh/chart: thunder-web-0.1.0
+    app.kubernetes.io/name: thunder-web
+    app.kubernetes.io/instance: opk
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thunder-web
+      app.kubernetes.io/instance: opk
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: thunder-web-0.1.0
+        app.kubernetes.io/name: thunder-web
+        app.kubernetes.io/instance: opk
+        app.kubernetes.io/version: "1.16.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: api-thunder-web
+      securityContext:
+        {}
+      containers:
+        - name: thunder-web
+          securityContext:
+            {}
+          image: "prinsoo/thunderstorm:frontend-v1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+---
+# Source: thunder-web/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-thunder-web
+  labels:
+    helm.sh/chart: thunder-web-0.1.0
+    app.kubernetes.io/name: thunder-web
+    app.kubernetes.io/instance: opk
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-thunder-web
+  minReplicas: 1
+  maxReplicas: 100
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+NOTES:
+1. Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace thunderstorm -l "app.kubernetes.io/name=thunder-web,app.kubernetes.io/instance=api" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace thunderstorm $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace thunderstorm port-forward $POD_NAME 8080:$CONTAINER_PORT
