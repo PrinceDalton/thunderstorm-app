@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+type: Opaque
+data:
+  POSTGRES_PASSWORD: ZXhhbXBsZQ==
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-configmap
+data:
+  POSTGRES_USER: john
+  POSTGRES_DB: endgame
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: thunder-postgres
+  labels:
+    app.kubernetes.io/name: thunder-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thunder-postgres
+  serviceName: "post-postgresql"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: thunder-postgres
+    spec:
+      containers:
+        - name: thunder-postgres
+          image: postgres
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                  name: postgres-configmap
+            - secretRef:
+                  name: postgres-secret
+          volumeMounts:
+            - name: psotgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: psotgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: standard
+        resources:
+          requests: 
+            storage: 100Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: post-postgresql
+  labels:
+    app.kubernetes.io/name: thunder-postgres
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: thunder-postgres

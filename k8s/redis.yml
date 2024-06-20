@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+type: Opaque
+data:
+  REDIS_PASSWORD: cmVkaXM=
+  REDIS_MASTER_PASSWORD: cmVkaXM=
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thunder-redis
+  labels:
+    app.kubernetes.io/name: thunder-redis
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: thunder-redis
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: thunder-redis
+    spec:
+      containers:
+        - name: thunder-redis
+          image: "redis"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                  name: redis-secret
+          ports:
+            - name: http
+              containerPort: 6379
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master
+  labels:
+    app.kubernetes.io/name: thunder-redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: thunder-redis
